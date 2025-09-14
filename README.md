@@ -34,6 +34,6 @@ Then reload plugins in Obsidian and enable "HUMAIN Chat".
 
 Settings → HUMAIN Chat:
 - API key (temporary dev OK)
-- Model (e.g. `gpt-4o-mini`; use `gpt-5-chat` when generally available)
+- Model (default `gpt-5-chat`)
 - Optional base URL for compatible gateways
 

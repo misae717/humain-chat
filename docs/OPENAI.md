@@ -8,7 +8,7 @@
 Example request body:
 ```json
 {
-  "model": "gpt-4o-mini",
+  "model": "gpt-5-chat",
   "messages": [
     {"role": "system", "content": "You are HUMAIN Chat inside Obsidian."},
     {"role": "user", "content": "Hello!"}

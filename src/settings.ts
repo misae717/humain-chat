@@ -38,12 +38,12 @@ export class HumainChatSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Model')
-			.setDesc('OpenAI chat model (e.g., gpt-4o-mini, gpt-4.1, gpt-5-chat when available)')
+			.setDesc('OpenAI chat model (default: gpt-5-chat)')
 			.addText(text => text
-				.setPlaceholder('gpt-4o-mini')
-				.setValue(this.plugin.settings.openAIModel || 'gpt-4o-mini')
+				.setPlaceholder('gpt-5-chat')
+				.setValue(this.plugin.settings.openAIModel || 'gpt-5-chat')
 				.onChange(async (value) => {
-					this.plugin.settings.openAIModel = value || 'gpt-4o-mini';
+					this.plugin.settings.openAIModel = value || 'gpt-5-chat';
 					await this.plugin.saveSettings();
 				}));
 
