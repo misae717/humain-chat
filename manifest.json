@@ -1,0 +1,13 @@
+{
+	"id": "humain-chat",
+	"name": "HUMAIN Chat",
+	"version": "0.1.0",
+	"minAppVersion": "1.4.0",
+	"description": "A persistent, aesthetic chat sidebar prepared for agentic workflows.",
+	"author": "",
+	"authorUrl": "",
+	"isDesktopOnly": false
+}
+
+
+

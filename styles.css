@@ -1,0 +1,173 @@
+/* HUMAIN Chat styles */
+
+.humain-chat-view {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	gap: 12px;
+	padding: 12px;
+	background: var(--humain-surface-bg, transparent);
+	border-radius: 14px;
+	border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+	box-shadow: 0 10px 30px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.06);
+	backdrop-filter: blur(var(--humain-glass-blur, 10px));
+	background-clip: padding-box;
+}
+
+.humain-chat-header {
+	font-weight: 600;
+	opacity: 0.9;
+	letter-spacing: .2px;
+}
+
+.humain-logo { width: 220px; max-width: 100%; }
+.humain-logo svg { width: 100%; height: auto; display: block; }
+
+/* Subtle center glow behind brand */
+.humain-glow {
+	position: relative;
+	width: 100%; height: 0;
+	pointer-events: none;
+}
+.humain-glow::after {
+	content: "";
+	position: absolute;
+	left: 50%; top: -36px;
+	transform: translateX(-50%);
+	width: 220px; height: 110px;
+	background: radial-gradient(closest-side, rgba(238,255,187,.8), rgba(238,255,187,0) 60%);
+	filter: blur(16px);
+	z-index: 0;
+}
+.humain-logo { position: relative; z-index: 1; }
+
+/* Gradient scoped to chat view only */
+.humain-chat-view {
+	background-image: linear-gradient(
+		var(--humain-gradient-angle, 180deg),
+		var(--humain-gradient-start, #a8f374),
+		var(--humain-gradient-end, #00bfa5)
+	);
+	background-attachment: local;
+}
+
+/* Optional subtle animation */
+@keyframes humainGradientShift {
+	0% { filter: hue-rotate(0deg) saturate(1); }
+	50% { filter: hue-rotate(6deg) saturate(1.05); }
+	100% { filter: hue-rotate(0deg) saturate(1); }
+}
+.humain-chat-view.humain-gradient-animated {
+	animation: humainGradientShift 18s ease-in-out infinite;
+}
+
+/* Bubble entrance animation */
+@keyframes humainBubbleIn {
+	0% { transform: translateY(4px) scale(.98); opacity: 0; }
+	100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.humain-bubble-in {
+	animation: humainBubbleIn 220ms ease-out;
+}
+
+/* Glass surface for chat container */
+.humain-chat-view {
+	--humain-surface-bg: color-mix(in srgb, var(--background-primary) calc(var(--humain-glass-opacity, .65) * 100%), transparent);
+}
+
+.humain-chat-messages {
+	flex: 1 1 auto;
+	overflow: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding-right: 2px;
+}
+
+.humain-chat-row {
+	display: flex;
+}
+.humain-chat-row.role-user {
+	justify-content: flex-end;
+}
+.humain-chat-row.role-assistant {
+	justify-content: flex-start;
+}
+
+.humain-chat-bubble {
+	max-width: 82%;
+	padding: 10px 14px;
+	border-radius: 14px;
+	line-height: 1.45;
+	border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+	box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.humain-chat-row.role-assistant .humain-chat-bubble {
+	background: color-mix(in srgb, var(--background-primary) 92%, transparent);
+	color: color-mix(in srgb, var(--text-normal) 95%, black 5%);
+}
+.humain-chat-row.role-user .humain-chat-bubble {
+	background: linear-gradient(
+		180deg,
+		color-mix(in srgb, var(--humain-accent, #00D49C) 90%, white 5%),
+		color-mix(in srgb, var(--humain-accent, #00D49C) 80%, black 5%)
+	);
+	color: #072019;
+	border-color: transparent;
+}
+
+.humain-chat-input-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.humain-chat-textarea {
+	flex: 1 1 auto;
+	min-height: 44px;
+	max-height: 140px;
+	resize: vertical;
+	padding: 10px 12px;
+	border-radius: 12px;
+	border: 1px solid var(--background-modifier-border);
+	background: color-mix(in srgb, var(--background-primary) 85%, transparent);
+}
+.humain-chat-send {
+	flex: 0 0 auto;
+	border-radius: 999px;
+	padding: 10px 16px;
+	background: linear-gradient(135deg, #0ed2a7, #37d68b);
+	color: #06261f;
+	font-weight: 600;
+	border: 1px solid color-mix(in srgb, #0ed2a7 50%, #0000);
+	box-shadow: 0 6px 16px rgba(0,0,0,.12);
+	position: relative;
+	overflow: hidden;
+}
+.humain-chat-send::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(100% 100% at 0% 0%, rgba(255,255,255,.25), transparent 60%),
+	            radial-gradient(120% 120% at 100% 100%, rgba(255,255,255,.15), transparent 60%);
+	opacity: .6;
+	pointer-events: none;
+}
+.humain-chat-send:hover { filter: brightness(1.03); }
+.humain-chat-send:active { transform: translateY(1px); }
+.humain-chat-send.anim { animation: humainGradientShift 10s ease-in-out infinite; }
+}
+
+/* Compact mode */
+.humain-compact .humain-chat-view {
+	gap: 6px;
+	padding: 8px;
+}
+.humain-compact .humain-chat-bubble {
+	padding: 6px 10px;
+	border-radius: 12px;
+}
+.humain-compact .humain-chat-textarea {
+	min-height: 32px;
+}
+
+
