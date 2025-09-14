@@ -13,6 +13,9 @@ export interface HumainChatSettings {
 	oceanEnabled?: boolean;
 	noiseEnabled?: boolean;
 	oceanIntensity?: number; // 0.0 - 1.0
+	openAIApiKey?: string;
+	openAIModel?: string;
+	openAIBaseUrl?: string;
 }
 
 export const DEFAULT_SETTINGS: HumainChatSettings = {
@@ -32,6 +35,10 @@ export const DEFAULT_SETTINGS: HumainChatSettings = {
 	oceanEnabled: true,
 	noiseEnabled: true,
 	oceanIntensity: 0.6
+,
+	openAIApiKey: '',
+	openAIModel: 'gpt-4o-mini',
+	openAIBaseUrl: 'https://api.openai.com'
 };
 
 export const VIEW_TYPE_CHAT = 'humain-chat-view';

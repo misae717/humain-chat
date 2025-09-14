@@ -23,6 +23,41 @@ export class HumainChatSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		containerEl.createEl('h3', { text: 'OpenAI' });
+
+		new Setting(containerEl)
+			.setName('API key')
+			.setDesc('Temporary dev key; stored in plugin data.')
+			.addText(text => text
+				.setPlaceholder('sk-... or sk-proj-...')
+				.setValue(this.plugin.settings.openAIApiKey || '')
+				.onChange(async (value) => {
+					this.plugin.settings.openAIApiKey = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Model')
+			.setDesc('OpenAI chat model (e.g., gpt-4o-mini, gpt-4.1, gpt-5-chat when available)')
+			.addText(text => text
+				.setPlaceholder('gpt-4o-mini')
+				.setValue(this.plugin.settings.openAIModel || 'gpt-4o-mini')
+				.onChange(async (value) => {
+					this.plugin.settings.openAIModel = value || 'gpt-4o-mini';
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Base URL (optional)')
+			.setDesc('Override base URL for OpenAI-compatible endpoints')
+			.addText(text => text
+				.setPlaceholder('https://api.openai.com')
+				.setValue(this.plugin.settings.openAIBaseUrl || 'https://api.openai.com')
+				.onChange(async (value) => {
+					this.plugin.settings.openAIBaseUrl = value || 'https://api.openai.com';
+					await this.plugin.saveSettings();
+				}));
+
 		new Setting(containerEl)
 			.setName('Auto-open on start')
 			.setDesc('Open the chat view when Obsidian loads.')
