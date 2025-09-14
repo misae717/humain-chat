@@ -60,6 +60,7 @@ export default class HumainChatPlugin extends Plugin {
 		root.style.setProperty('--humain-gradient-angle', this.settings.gradientAngle);
 		root.style.setProperty('--humain-glass-blur', this.settings.glassBlur);
 		root.style.setProperty('--humain-glass-opacity', this.settings.glassOpacity);
+		root.style.setProperty('--humain-ocean-intensity', String(this.settings.oceanIntensity ?? 0.6));
 	}
 
 	async activateChatView() {

@@ -36,6 +36,7 @@ export class ChatView extends ItemView {
 		if (animated) root.addClass('humain-gradient-animated');
 		if (ocean) root.addClass('humain-ocean');
 		if (noise) root.addClass('humain-noise');
+		if (ocean) root.createEl('div', { cls: 'humain-ocean-layer3' });
 		// Removed bloom/glow to avoid visual noise and global bleed
 
 		const messages = root.createEl('div', { cls: 'humain-chat-messages' });

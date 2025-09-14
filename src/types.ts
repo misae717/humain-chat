@@ -12,6 +12,7 @@ export interface HumainChatSettings {
 	animatedGradient: boolean;
 	oceanEnabled?: boolean;
 	noiseEnabled?: boolean;
+	oceanIntensity?: number; // 0.0 - 1.0
 }
 
 export const DEFAULT_SETTINGS: HumainChatSettings = {
@@ -29,7 +30,8 @@ export const DEFAULT_SETTINGS: HumainChatSettings = {
 	animatedGradient: true
 ,
 	oceanEnabled: true,
-	noiseEnabled: true
+	noiseEnabled: true,
+	oceanIntensity: 0.6
 };
 
 export const VIEW_TYPE_CHAT = 'humain-chat-view';

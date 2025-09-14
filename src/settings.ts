@@ -156,6 +156,19 @@ export class HumainChatSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.refreshChatView();
 				}));
+
+		new Setting(containerEl)
+			.setName('Ocean intensity')
+			.setDesc('Controls motion/contrast of ocean layers (0.2 – 1).')
+			.addSlider(slider => slider
+				.setLimits(0.2, 1, 0.05)
+				.setValue(this.plugin.settings.oceanIntensity ?? 0.6)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					this.plugin.settings.oceanIntensity = value;
+					await this.plugin.saveSettings();
+					this.plugin.refreshChatView();
+				}));
 	}
 }
 
