@@ -57,6 +57,7 @@ export class ChatView extends ItemView {
 			e.preventDefault();
 			const text = textarea.value.trim();
 			if (!text) return;
+			sendBtn.setAttr('disabled', 'true');
 			this.appendMessage(messages, text, 'user');
 			this.conversation.push({ role: 'user', content: text });
 			textarea.value = '';
@@ -72,6 +73,7 @@ export class ChatView extends ItemView {
 				placeholder.setText(`OpenAI error: ${err?.message || String(err)}`);
 			}
 			messages.scrollTop = messages.scrollHeight;
+			sendBtn.removeAttribute('disabled');
 		});
 	}
 

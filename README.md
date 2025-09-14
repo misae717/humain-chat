@@ -25,6 +25,11 @@ Copy `main.js`, `manifest.json`, and `styles.css` to your vault:
 ```
 Then reload plugins in Obsidian and enable "HUMAIN Chat".
 
+## Branching
+
+- Active development on `dev`.
+- Merge to `main` when stable and performance-approved.
+
 ## OpenAI integration
 
 - Endpoint: `POST /v1/chat/completions`
