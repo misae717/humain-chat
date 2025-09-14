@@ -31,7 +31,11 @@ export class ChatView extends ItemView {
 		// Animation preference from plugin settings (no direct import to avoid cycles)
 		const plugin: any = (this.app as any).plugins?.getPlugin?.('humain-chat');
 		const animated = !!plugin?.settings?.animatedGradient;
+		const ocean = !!plugin?.settings?.oceanEnabled;
+		const noise = !!plugin?.settings?.noiseEnabled;
 		if (animated) root.addClass('humain-gradient-animated');
+		if (ocean) root.addClass('humain-ocean');
+		if (noise) root.addClass('humain-noise');
 		// Removed bloom/glow to avoid visual noise and global bleed
 
 		const messages = root.createEl('div', { cls: 'humain-chat-messages' });

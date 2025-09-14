@@ -134,6 +134,28 @@ export class HumainChatSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.refreshChatView();
 				}));
+
+		new Setting(containerEl)
+			.setName('Ocean waves (CSS-only)')
+			.setDesc('Gentle layered wave motion on chat background.')
+			.addToggle(toggle => toggle
+				.setValue(!!this.plugin.settings.oceanEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings.oceanEnabled = value;
+					await this.plugin.saveSettings();
+					this.plugin.refreshChatView();
+				}));
+
+		new Setting(containerEl)
+			.setName('Noise overlay')
+			.setDesc('Low-opacity grain for depth without blur.')
+			.addToggle(toggle => toggle
+				.setValue(!!this.plugin.settings.noiseEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings.noiseEnabled = value;
+					await this.plugin.saveSettings();
+					this.plugin.refreshChatView();
+				}));
 	}
 }
 

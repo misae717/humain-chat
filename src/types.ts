@@ -10,6 +10,8 @@ export interface HumainChatSettings {
 	glassBlur: string;
 	glassOpacity: string;
 	animatedGradient: boolean;
+	oceanEnabled?: boolean;
+	noiseEnabled?: boolean;
 }
 
 export const DEFAULT_SETTINGS: HumainChatSettings = {
@@ -25,6 +27,9 @@ export const DEFAULT_SETTINGS: HumainChatSettings = {
 	glassOpacity: '0.65'
 ,
 	animatedGradient: true
+,
+	oceanEnabled: true,
+	noiseEnabled: true
 };
 
 export const VIEW_TYPE_CHAT = 'humain-chat-view';
