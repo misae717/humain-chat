@@ -4,8 +4,10 @@ import { VIEW_TYPE_CHAT } from '../types';
 import logoSvg from './logo.svg';
 
 export class ChatView extends ItemView {
+	private conversation: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
 	constructor(leaf: WorkspaceLeaf) {
 		super(leaf);
+		this.conversation = [{ role: 'system', content: 'You are HUMAIN Chat inside Obsidian. Be concise and helpful.' }];
 	}
 
 	getViewType(): string {
@@ -42,6 +44,12 @@ export class ChatView extends ItemView {
 		const messages = root.createEl('div', { cls: 'humain-chat-messages' });
 		const inputRow = root.createEl('form', { cls: 'humain-chat-input-row' });
 		const textarea = inputRow.createEl('textarea', { cls: 'humain-chat-textarea', attr: { placeholder: 'Type a message…' } });
+		textarea.addEventListener('keydown', (e: KeyboardEvent) => {
+			if (e.key === 'Enter' && !e.shiftKey) {
+				e.preventDefault();
+				inputRow.requestSubmit();
+			}
+		});
 		const sendBtn = inputRow.createEl('button', { cls: 'humain-chat-send', text: 'Send', attr: { type: 'submit' } });
 		if (animated) sendBtn.addClass('anim');
 
@@ -50,15 +58,18 @@ export class ChatView extends ItemView {
 			const text = textarea.value.trim();
 			if (!text) return;
 			this.appendMessage(messages, text, 'user');
+			this.conversation.push({ role: 'user', content: text });
 			textarea.value = '';
 			const placeholder = this.appendMessage(messages, '…', 'assistant');
 			messages.scrollTop = messages.scrollHeight;
 
 			try {
-				const reply = await this.callOpenAI(text);
+				const reply = await this.callOpenAI();
 				placeholder.setText(reply || '');
-			} catch (err) {
-				placeholder.setText('Error contacting OpenAI');
+				if (reply) this.conversation.push({ role: 'assistant', content: reply });
+			} catch (err: any) {
+				console.error('OpenAI error', err);
+				placeholder.setText(`OpenAI error: ${err?.message || String(err)}`);
 			}
 			messages.scrollTop = messages.scrollHeight;
 		});
@@ -70,14 +81,15 @@ export class ChatView extends ItemView {
 		return el;
 	}
 
-	private async callOpenAI(userContent: string): Promise<string> {
+	private async callOpenAI(): Promise<string> {
 		const plugin: any = (this.app as any).plugins?.getPlugin?.('humain-chat');
 		const settings = plugin?.settings || {};
 		const apiKey: string = settings.openAIApiKey || '';
 		const baseUrl: string = (settings.openAIBaseUrl || 'https://api.openai.com').replace(/\/$/, '');
-		const model: string = settings.openAIModel || 'gpt-4o-mini';
+		const model: string = settings.openAIModel || 'gpt-5-chat-latest';
 		if (!apiKey) throw new Error('Missing OpenAI API key. Set it in Settings → HUMAIN Chat.');
 
+		const messagesLimited = this.buildLimitedMessages(this.conversation, 6000);
 		const url = `${baseUrl}/v1/chat/completions`;
 		const resp = await fetch(url, {
 			method: 'POST',
@@ -87,10 +99,7 @@ export class ChatView extends ItemView {
 			},
 			body: JSON.stringify({
 				model,
-				messages: [
-					{ role: 'system', content: 'You are HUMAIN Chat inside Obsidian. Be concise.' },
-					{ role: 'user', content: userContent },
-				],
+				messages: messagesLimited,
 				stream: false,
 				temperature: 0.3,
 			}),
@@ -98,6 +107,31 @@ export class ChatView extends ItemView {
 		if (!resp.ok) throw new Error(`OpenAI HTTP ${resp.status}`);
 		const json = await resp.json();
 		return json?.choices?.[0]?.message?.content || '';
+	}
+
+	private buildLimitedMessages(all: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>, maxTokens: number) {
+		const estimate = (s: string) => Math.ceil(s.length / 4);
+		let total = 0;
+		const out: typeof all = [];
+		const sys = all[0]?.role === 'system' ? all[0] : undefined;
+		const rest = sys ? all.slice(1) : all.slice(0);
+		const reversed = [...rest].reverse();
+		const acc: typeof all = [];
+		for (const m of reversed) {
+			const t = estimate(m.content) + 4;
+			if (total + t > maxTokens) break;
+			total += t;
+			acc.push(m);
+		}
+		acc.reverse();
+		if (sys) {
+			const tSys = estimate(sys.content) + 4;
+			if (total + tSys <= maxTokens) {
+				out.push(sys);
+			}
+		}
+		out.push(...acc);
+		return out;
 	}
 
 	async onClose() {

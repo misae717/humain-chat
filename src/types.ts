@@ -37,7 +37,7 @@ export const DEFAULT_SETTINGS: HumainChatSettings = {
 	oceanIntensity: 0.6
 ,
 	openAIApiKey: '',
-	openAIModel: 'gpt-5-chat',
+	openAIModel: 'gpt-5-chat-latest',
 	openAIBaseUrl: 'https://api.openai.com'
 };
 

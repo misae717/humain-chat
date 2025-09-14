@@ -40,10 +40,10 @@ export class HumainChatSettingTab extends PluginSettingTab {
 			.setName('Model')
 			.setDesc('OpenAI chat model (default: gpt-5-chat)')
 			.addText(text => text
-				.setPlaceholder('gpt-5-chat')
-				.setValue(this.plugin.settings.openAIModel || 'gpt-5-chat')
+				.setPlaceholder('gpt-5-chat-latest')
+				.setValue(this.plugin.settings.openAIModel || 'gpt-5-chat-latest')
 				.onChange(async (value) => {
-					this.plugin.settings.openAIModel = value || 'gpt-5-chat';
+					this.plugin.settings.openAIModel = value || 'gpt-5-chat-latest';
 					await this.plugin.saveSettings();
 				}));
 
