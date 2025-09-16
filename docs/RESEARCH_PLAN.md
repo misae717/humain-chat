@@ -113,3 +113,16 @@ Deliverables to compare
 - Persistent vector index; metadata store.
 - HUMAIN Chat integration with retrieval and citations.
 - Agent ops API with safety guards (dry-run + review).
+
+
+11) Local embedding model formats (JS/TS only)
+- Target formats for transformers.js / ORT Web:
+  - Weights: .onnx (prefer int8-quantized variants where available)
+  - Tokenizer assets: tokenizer.json (or vocab.json + merges.txt, or tokenizer.model)
+  - Configs: config.json, special_tokens_map.json, preprocessor_config.json
+- Execution providers:
+  - WebGPU (preferred when available) or WASM (threads + SIMD) on CPU
+- Avoid: .safetensors/.pth (PyTorch), .gguf (llama.cpp) unless using a sidecar (Ollama/LM Studio)
+- Suggested starting points:
+  - bge-small-en-v1.5 (balanced), bge-base-en-v1.5 (higher accuracy), bge-micro-v2 (very fast)
+
