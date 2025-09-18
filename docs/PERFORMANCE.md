@@ -15,3 +15,8 @@ Future work
 - Add a "Low motion" preset that disables blend modes and reduces keyframes.
 - Pause animations when Obsidian window is unfocused/hidden.
 - Respect `prefers-reduced-motion` automatically.
+
+
+
+
+

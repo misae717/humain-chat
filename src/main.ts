@@ -1,16 +1,32 @@
 import { Plugin, WorkspaceLeaf } from 'obsidian';
-import { DEFAULT_SETTINGS, HumainChatSettings, VIEW_TYPE_CHAT } from './types';
+import { DEFAULT_SETTINGS, HumainChatSettings, VIEW_TYPE_CHAT, VIEW_TYPE_DEBUG } from './types';
 import { ChatView } from './ui/chatView';
+import { DebugView } from './ui/debugView';
 import { HumainChatSettingTab } from './settings';
 import { registerCommands } from './commands';
+import { ensureIndexInitialized } from './vector/rag';
 
 export default class HumainChatPlugin extends Plugin {
 	settings: HumainChatSettings;
+	private _indexing?: { running: boolean; processed: number; total: number; note?: string };
+	private _statusEl?: HTMLElement;
 
 	async onload() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		// Migrate old model names to 'gpt-5'
+		const legacy = ['gpt-5-chat-latest','gpt-5-2025-08-07'];
+		if (!this.settings.openAIModel || legacy.includes(this.settings.openAIModel)) {
+			this.settings.openAIModel = 'gpt-5';
+			try { await this.saveSettings(); } catch {}
+		}
+		// Force streaming off per user request
+		if ((this.settings as any).streamFinalAnswer !== false) {
+			(this.settings as any).streamFinalAnswer = false;
+			try { await this.saveSettings(); } catch {}
+		}
 
 		this.registerView(VIEW_TYPE_CHAT, (leaf: WorkspaceLeaf) => new ChatView(leaf));
+		this.registerView(VIEW_TYPE_DEBUG, (leaf: WorkspaceLeaf) => new DebugView(leaf));
 
 		if (this.settings.autoOpenOnStart) {
 			this.app.workspace.onLayoutReady(async () => {
@@ -28,6 +44,37 @@ export default class HumainChatPlugin extends Plugin {
 		this.addSettingTab(new HumainChatSettingTab(this.app, this));
 
 		this.applyThemeVars();
+
+		// Lazily prepare vector index directory
+		try { await ensureIndexInitialized(this); } catch (e) { console.warn('HUMAIN index init warn', e); }
+
+		// Prepare status bar item
+		this._statusEl = this.addStatusBarItem();
+		this._statusEl.setText('HUMAIN: idle');
+	}
+
+	get indexingStatus() { return this._indexing; }
+
+	async runRebuildIndex() {
+		if (this._indexing?.running) {
+			// Already running, surface in debug view
+			(console as any).log?.('HUMAIN: rebuild already in progress');
+			return;
+		}
+		this._indexing = { running: true, processed: 0, total: 0 };
+		this._statusEl?.setText('HUMAIN: indexing 0%');
+		try {
+			const { rebuildVaultIndex } = await import('./vector/rag');
+			await rebuildVaultIndex(this, (u) => {
+				this._indexing = { running: true, processed: u.processed, total: u.total, note: u.note };
+				try { (window as any).__HUMAIN_DEBUG_APPEND__?.(`[index] ${u.processed}/${u.total}${u.note ? ' — ' + u.note : ''}`); } catch {}
+				const pct = u.total ? Math.round((u.processed / u.total) * 100) : 0;
+				this._statusEl?.setText(`HUMAIN: indexing ${pct}%`);
+			});
+		} finally {
+			this._indexing = { running: false, processed: 0, total: 0 };
+			this._statusEl?.setText('HUMAIN: idle');
+		}
 	}
 
 	onunload() {

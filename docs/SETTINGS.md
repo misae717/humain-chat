@@ -13,3 +13,8 @@ OpenAI
 - API key: bearer token used for requests.
 - Model: default `gpt-5-chat-latest`.
 - Base URL: defaults to `https://api.openai.com`.
+
+
+
+
+
