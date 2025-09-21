@@ -1,7 +1,7 @@
 import type HumainChatPlugin from '../main';
 import { rebuildVaultIndex } from '../vector/rag';
 import { Notice } from 'obsidian';
-import { VIEW_TYPE_DEBUG } from '../types';
+import { VIEW_TYPE_DEBUG, VIEW_TYPE_TRACE } from '../types';
 import { exportRandomSamples } from '../vector/sample_export';
 import { scanIndexableTree } from '../vector/tree_scan';
 
@@ -40,6 +40,17 @@ export function registerCommands(plugin: HumainChatPlugin) {
 			const { workspace } = plugin.app;
 			const leaf = workspace.getLeaf(true);
 			await leaf.setViewState({ type: VIEW_TYPE_DEBUG, active: true });
+			workspace.revealLeaf(leaf);
+		},
+	});
+
+	plugin.addCommand({
+		id: 'humain-open-trace-view',
+		name: 'Open HUMAIN Trace View',
+		callback: async () => {
+			const { workspace } = plugin.app;
+			const leaf = workspace.getLeaf(true);
+			await leaf.setViewState({ type: VIEW_TYPE_TRACE, active: true });
 			workspace.revealLeaf(leaf);
 		},
 	});

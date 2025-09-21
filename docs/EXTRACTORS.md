@@ -23,11 +23,11 @@
 ## Chunking (post-extract)
 - Paragraph/sentence-aware
 - Target ~700 tokens (~2800 chars) with ~100-token overlap (~400 chars)
-- PPTX slides are merged in groups of 4 to avoid tiny snippets
+- PPTX slides are merged in groups of 4 to avoid tiny snippets; chunk metadata includes `section` like `slide:N`
 
 ## Quality notes
 - DOCX: no style semantics; headings inferred by text position unlikely; good for simple docs
-- PPTX: speaker notes not yet parsed; current chunks are slide bodies only
+- PPTX: speaker notes not yet parsed; current chunks are slide bodies only; files expose slide numbers in chunk `section`
 - PDF: complex layouts (columns/tables) degrade; consider heuristics or minimal layout inference
 
 ## Planned improvements

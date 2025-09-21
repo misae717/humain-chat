@@ -17,11 +17,14 @@
 ## Advanced
 - Path-based boosts/penalties (e.g., downweight `Welcome.md`)
 - Recency re-rank (prefer recently updated notes)
-- Folder/tag filters in `find_similar`
+- Folder/tag filters in `find_similar` ("/" or blank is ignored)
 - Hybrid BM25 + vector (future)
+- Section metadata per chunk: `section` for headings/slide numbers, `start/end` offsets
 
 ## Debugging
 - Use Debug view to inspect retrieved items
+- Trace View shows tool args/results and final citations
 - Export samples to audit extractors
 - Scan tree to identify non-indexables
+- Remember: chat is now stateful (prior messages included up to ~6k tokens)
 

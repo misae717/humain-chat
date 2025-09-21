@@ -2,7 +2,7 @@ import { ItemView, WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE_DEBUG } from '../types';
 
 export class DebugView extends ItemView {
-  private logs: string[] = [];
+  private logs: Array<{ t: string; m: string; ctx?: any }> = [];
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -19,11 +19,24 @@ export class DebugView extends ItemView {
     const actions = root.createEl('div', { cls: 'humain-debug-actions' });
     const clearBtn = actions.createEl('button', { text: 'Clear' });
     clearBtn.onclick = () => { this.logs = []; render(); };
-    const body = root.createEl('pre', { cls: 'humain-debug-body', attr: { contenteditable: 'true' } });
+    const body = root.createEl('pre', { cls: 'humain-debug-body' });
+    body.style.userSelect = 'text';
+    (body.style as any)['-webkit-user-select'] = 'text';
 
-    const render = () => { body.setText(this.logs.join('\n\n')); body.scrollTop = body.scrollHeight; };
-    // Save renderer to global for logging
-    (window as any).__HUMAIN_DEBUG_APPEND__ = (entry: string) => { this.logs.push(entry); render(); };
+    const render = () => {
+      const lines: string[] = [];
+      for (const e of this.logs.slice(-400)) {
+        const ctx = e.ctx ? `\n${JSON.stringify(e.ctx, null, 2)}` : '';
+        lines.push(`[${e.t}] ${e.m}${ctx}`);
+      }
+      body.setText(lines.join('\n\n'));
+      body.scrollTop = body.scrollHeight;
+    };
+    // Save renderer to global for logging (structured)
+    (window as any).__HUMAIN_DEBUG_APPEND__ = (type: string, message: string, ctx?: any) => {
+      this.logs.push({ t: type, m: message, ctx });
+      render();
+    };
     render();
   }
 
@@ -31,7 +44,11 @@ export class DebugView extends ItemView {
 }
 
 export function appendDebug(entry: string) {
-  try { (window as any).__HUMAIN_DEBUG_APPEND__?.(entry); } catch (_) {}
+  try { (window as any).__HUMAIN_DEBUG_APPEND__?.('log', entry); } catch (_) {}
+}
+
+export function debugEvent(type: 'agent' | 'retrieval' | 'error' | 'openai' | 'log', message: string, ctx?: any) {
+  try { (window as any).__HUMAIN_DEBUG_APPEND__?.(type, message, ctx); } catch (_) {}
 }
 
 

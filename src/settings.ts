@@ -70,6 +70,20 @@ export class HumainChatSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName('Auto-open Debug pane')
+			.setDesc('Open HUMAIN Debug next to Chat when Chat opens')
+			.addToggle(t => t
+				.setValue(!!this.plugin.settings.autoOpenDebug)
+				.onChange(async (v) => { this.plugin.settings.autoOpenDebug = v; await this.plugin.saveSettings(); }));
+
+		new Setting(containerEl)
+			.setName('Auto-open Trace pane')
+			.setDesc('Open HUMAIN Trace next to Chat when Chat opens')
+			.addToggle(t => t
+				.setValue(!!this.plugin.settings.autoOpenTrace)
+				.onChange(async (v) => { this.plugin.settings.autoOpenTrace = v; await this.plugin.saveSettings(); }));
+
+		new Setting(containerEl)
 			.setName('Compact UI')
 			.setDesc('Reduce paddings and font sizes.')
 			.addToggle(toggle => toggle
@@ -206,18 +220,18 @@ export class HumainChatSettingTab extends PluginSettingTab {
 					this.plugin.refreshChatView();
 				}));
 
-		containerEl.createEl('h3', { text: 'Agent & Reasoning' });
+		containerEl.createEl('h3', { text: 'Agent engine' });
 
 		new Setting(containerEl)
-			.setName('Enable agentic mode')
-			.setDesc('Use a bounded multi-step loop (plan → retrieve → answer).')
+			.setName('Use LangGraph agent')
+			.setDesc('Enable the new LangGraph-based agent orchestration (recommended). Turn off to use legacy loop.')
 			.addToggle(t => t
 				.setValue(!!this.plugin.settings.agenticMode)
 				.onChange(async (value) => { this.plugin.settings.agenticMode = value; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
-			.setName('Stream final answer')
-			.setDesc('Stream tokens for the final response (tool phases are non-streaming).')
+			.setName('Final answer streaming')
+			.setDesc('Stream tokens for the final response (if supported by model)')
 			.addToggle(t => t
 				.setValue(!!this.plugin.settings.streamFinalAnswer)
 				.onChange(async (value) => { this.plugin.settings.streamFinalAnswer = value; await this.plugin.saveSettings(); }));
@@ -256,6 +270,13 @@ export class HumainChatSettingTab extends PluginSettingTab {
 			.addToggle(t => t
 				.setValue(!!this.plugin.settings.showReasoning)
 				.onChange(async (value) => { this.plugin.settings.showReasoning = value; await this.plugin.saveSettings(); }));
+
+		new Setting(containerEl)
+			.setName('Include vault outline each turn')
+			.setDesc('Automatically provide a cached high-level vault outline to the agent every turn (uses minimal tokens).')
+			.addToggle(t => t
+				.setValue(!!this.plugin.settings.includeVaultOutlineEachTurn)
+				.onChange(async (value) => { (this.plugin.settings as any).includeVaultOutlineEachTurn = value; await this.plugin.saveSettings(); }));
 
 		// Retrieval & Embeddings
 		containerEl.createEl('h3', { text: 'Retrieval & Embeddings' });

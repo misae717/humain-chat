@@ -1,9 +1,9 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE_CHAT } from '../types';
 import type HumainChatPlugin from '../main';
-import { buildRetrievalContext, searchSimilar } from '../vector/rag';
+import { searchSimilar } from '../vector/rag';
 import { extractIfSupported } from '../vector/extractors';
-import { appendDebug } from './debugView';
+import { appendDebug, debugEvent } from './debugView';
 import { MarkdownRenderer } from 'obsidian';
 // @ts-ignore - esbuild loads .svg as raw text
 import logoSvg from './logo.svg';
@@ -72,24 +72,11 @@ export class ChatView extends ItemView {
 			messages.scrollTop = messages.scrollHeight;
 
 			try {
-                const plugin: any = (this.app as any).plugins?.getPlugin?.('humain-chat');
-                const agentic = !!plugin?.settings?.agenticMode;
-                if (agentic) {
-                    await this.runAgentFlow(text, placeholder);
-                } else {
-                    // Legacy path: best-effort retrieval then single-shot answer
-                    let context = '';
-                    try { context = await buildRetrievalContext(plugin as HumainChatPlugin, text); appendDebug(`[retrieval]\nquery: ${text}\n---\n${context}`); } catch {}
-                    const replyRaw = await this.callOpenAI(context);
-                    const reply = this.postprocessAssistant(replyRaw || '');
-                    appendDebug(`[assistant]\n${reply}`);
-                    this.renderMarkdownTo(placeholder, reply || '');
-                    if (replyRaw) this.conversation.push({ role: 'assistant', content: replyRaw });
-                }
+				await this.runAgentFlowLangGraph(text, placeholder);
 			} catch (err: any) {
-				console.error('OpenAI error', err);
-				placeholder.setText(`OpenAI error: ${err?.message || String(err)}`);
-				appendDebug(`[error]\n${err?.stack || err?.message || String(err)}`);
+				console.error('Agent error', err);
+				placeholder.setText(`Agent error: ${err?.message || String(err)}`);
+				debugEvent('error', 'Agent crashed', { message: err?.message || String(err) });
 			}
 			messages.scrollTop = messages.scrollHeight;
 			sendBtn.removeAttribute('disabled');
@@ -125,57 +112,7 @@ export class ChatView extends ItemView {
 		});
 	}
 
-	private async callOpenAI(retrievedContext?: string): Promise<string> {
-		const plugin: any = (this.app as any).plugins?.getPlugin?.('humain-chat');
-		const settings = plugin?.settings || {};
-		const apiKey: string = settings.openAIApiKey || '';
-		const baseUrl: string = (settings.openAIBaseUrl || 'https://api.openai.com').replace(/\/$/, '');
-        const model: string = settings.openAIModel || 'gpt-5';
-		if (!apiKey) throw new Error('Missing OpenAI API key. Set it in Settings → HUMAIN Chat.');
 
-		const messagesLimited = this.buildLimitedMessages(this.conversation, 6000);
-		// Add current datetime context as a system hint and minimal reasoning guidance
-		const now = new Date();
-		const timeMsg = {
-			role: 'system' as const,
-			content: `Current date/time: ${now.toLocaleString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
-		};
-		messagesLimited.unshift(timeMsg);
-		const effort = (settings.reasoningEffort || 'low');
-		messagesLimited.unshift({ role: 'system', content: `Reasoning preference: ${effort}. Use minimal hidden reasoning, no chain-of-thought in answers.` });
-		if (retrievedContext) {
-			messagesLimited.unshift({
-				role: 'system',
-				content: `Use the following retrieved context as authoritative when answering. Cite filenames when relevant.\n\n${retrievedContext}`,
-			});
-		}
-        appendDebug(`[openai.request]\n${JSON.stringify({ model, messages: messagesLimited.map(m => ({ role: m.role, content: m.content.slice(0, 500) })) }, null, 2)}`);
-		const url = `${baseUrl}/v1/chat/completions`;
-		const resp = await fetch(url, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${apiKey}`,
-			},
-			body: JSON.stringify({
-				model,
-				messages: messagesLimited,
-				stream: false,
-				// no custom provider-specific fields
-			}),
-		});
-		if (!resp.ok) throw new Error(`OpenAI HTTP ${resp.status}`);
-		const json = await resp.json();
-		appendDebug(`[openai.response]\n${JSON.stringify(json, null, 2).slice(0, 4000)}\n...`);
-		return json?.choices?.[0]?.message?.content || '';
-	}
-
-	private async callOpenAIStream(placeholder: HTMLElement, retrievedContext?: string): Promise<string> {
-		// Removed streaming path; delegate to non-streaming for consistency
-		const text = await this.callOpenAI(retrievedContext);
-		placeholder.setText(text || '');
-		return text || '';
-	}
 
 	private pushStatus(text: string): HTMLElement {
 		const el = this.statusBar?.createEl('span', { cls: 'humain-status-chip', text }) as HTMLElement;
@@ -232,6 +169,7 @@ export class ChatView extends ItemView {
 
 		while (step < maxSteps) {
 			step++;
+			if (summaryEl) summaryEl.setText(`Step ${step}: Thinking…`);
 			const resp = await this.callModelNonStreaming(agentMessages);
 			const raw = resp?.content || '';
 			const tc = this.tryParseToolCall(raw);
@@ -248,7 +186,7 @@ export class ChatView extends ItemView {
 				return;
 			}
 
-			if (summaryEl) summaryEl.setText(`Step ${step}: Using \`${tc.name}\``);
+			if (summaryEl) summaryEl.setText(`Step ${step}: Searching with \`${tc.name}\``);
 			if (thinkingDetails) thinkingDetails.createEl('pre', { cls: 'humain-tool-call', text: `> Tool Call: ${JSON.stringify(tc, null, 2)}` });
 
 			let toolResult: any = { ok: true, data: null };
@@ -267,6 +205,13 @@ export class ChatView extends ItemView {
 
 			if (thinkingDetails) thinkingDetails.createEl('pre', { cls: 'humain-tool-result', text: `< Tool Result: ${JSON.stringify(toolResult)}` });
 			
+			// Early stop if retrieval is empty to avoid unproductive loops
+			if (tc.name === 'find_similar' && (!toolResult?.ok || !Array.isArray(toolResult?.data) || toolResult.data.length === 0)) {
+				if (summaryEl) summaryEl.setText(`Step ${step}: No results, answering`);
+				agentMessages.push({ role: 'system', content: 'Search returned no usable results. Provide your best answer without calling more tools.' });
+				break;
+			}
+
 			// Summarize the tool result for the model to reduce context bloat
 			const summarized = this.summarizeToolResult(tc.name, toolResult);
 			agentMessages.push({ role: 'assistant', content: JSON.stringify({ tool_call: { name: tc.name, arguments: tc.arguments || {} } }) });
@@ -437,6 +382,37 @@ export class ChatView extends ItemView {
 		if (!single.ok) throw new Error(`OpenAI HTTP ${single.status}`);
 		const json = await single.json();
 		return json?.choices?.[0]?.message?.content || '';
+	}
+
+	// New LangGraph-based agent
+	private async runAgentFlowLangGraph(userText: string, placeholder: HTMLElement) {
+		const plugin: any = (this.app as any).plugins?.getPlugin?.('humain-chat');
+		const { createAgent } = await import('../agent/graph');
+		const agent = await createAgent(plugin as any);
+		const messagesContainer = placeholder.parentElement?.parentElement;
+		if (!messagesContainer) return;
+		// Build stateful context: prior conversation (token-limited), then current user
+		const prior = this.buildLimitedMessages(this.conversation, 6000).filter(m => m.role !== 'system');
+		const seed = [
+			{ role: 'system', content: 'You are HUMAIN Chat. Be concise, cite filenames when applicable.' },
+			...prior,
+			{ role: 'user', content: userText }
+		] as any;
+		if (plugin?.settings?.includeVaultOutlineEachTurn) {
+			try {
+				const { getVaultOutline } = await import('../vector/tree_outline');
+				const outline = getVaultOutline(plugin as any, { maxFolders: 40, maxChars: 4000 });
+				if (outline) seed.unshift({ role: 'system', content: `Vault outline:\n${outline}` } as any);
+			} catch {}
+		}
+		debugEvent('agent', 'Turn start', { userText });
+		const out = await agent.runTurn(seed);
+		const last = out[out.length - 1];
+		const content = String((last as any)?.content || '').trim();
+		this.renderMarkdownTo(placeholder, content);
+		this.conversation.push({ role: 'user', content: userText });
+		this.conversation.push({ role: 'assistant', content });
+		debugEvent('agent', 'Turn end', { tokens: content.length });
 	}
 
 	private buildVaultOutline(maxFolders: number = 40, maxChars: number = 6000): string {

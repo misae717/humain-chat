@@ -7,6 +7,7 @@ export interface ExtractedDoc {
   path: string;
   mime: string;
   text: string;
+  meta?: { slides?: number; pages?: number };
 }
 
 export async function extractIfSupported(plugin: HumainChatPlugin, file: any): Promise<ExtractedDoc | null> {

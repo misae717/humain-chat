@@ -6,11 +6,14 @@ import { extractIfSupported } from './extractors';
 // Simple Ollama embeddings via fetch to /api/embed
 async function embedWithOllama(host: string, model: string, inputs: string[]): Promise<number[][]> {
   const url = host.replace(/\/$/, '') + '/api/embed';
+  const controller = new AbortController();
+  const to = setTimeout(() => controller.abort(), 15000);
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, input: inputs }) as any,
-  } as any);
+    signal: controller.signal,
+  } as any).finally(() => clearTimeout(to));
   if (!(resp as any).ok) throw new Error(`Ollama embed HTTP ${ (resp as any).status }`);
   const json = await (resp as any).json();
   const vectors: number[][] = json?.embeddings || json?.data || [];
@@ -25,8 +28,8 @@ function getAdapter(plugin: HumainChatPlugin) {
   return plugin.app.vault.adapter;
 }
 
-function debugLog(message: string) {
-  try { (window as any).__HUMAIN_DEBUG_APPEND__?.(message); } catch (_) {}
+function debugLog(message: string, ctx?: any) {
+  try { (window as any).__HUMAIN_DEBUG_APPEND__?.('retrieval', message, ctx); } catch (_) {}
 }
 
 function getSettingsWithDefaults(settings: HumainChatSettings) {
@@ -44,6 +47,49 @@ function getSettingsWithDefaults(settings: HumainChatSettings) {
   };
 }
 
+// LLM-assisted query rewriting (optional). Produces up to N focused variants.
+async function generateQueryVariants(plugin: HumainChatPlugin, userQuery: string, maxVariants: number): Promise<string[]> {
+  try {
+    const apiKey: string = (plugin.settings as any)?.openAIApiKey || '';
+    const baseUrl: string = ((plugin.settings as any)?.openAIBaseUrl || 'https://api.openai.com').replace(/\/$/, '');
+    const model: string = (plugin.settings as any)?.openAIModel || 'gpt-5';
+    if (!apiKey || !baseUrl || !model) return [];
+    const system = 'You generate terse, high-signal search queries to retrieve notes. Return ONLY JSON: {"queries":["..."]}. No prose.';
+    const prompt = `Query: ${userQuery}\nMax: ${Math.max(1, Math.min(5, maxVariants))}\nRules: diversify names/acronyms/synonyms; keep each under 12 words.`;
+    const controller = new AbortController();
+    const to = setTimeout(() => controller.abort(), 10000);
+    const resp = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: prompt }
+        ],
+        stream: false
+      }),
+      signal: controller.signal
+    } as any).finally(() => clearTimeout(to));
+    if (!('ok' in (resp as any)) || !(resp as any).ok) return [];
+    const json = await (resp as any).json();
+    const text: string = json?.choices?.[0]?.message?.content || '';
+    let parsed: any = null;
+    try { parsed = JSON.parse(text); } catch {
+      // try to extract first JSON object
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch {} }
+    }
+    const arr: string[] = Array.isArray(parsed?.queries) ? parsed.queries : [];
+    const cleaned = arr.map(s => String(s || '').trim()).filter(Boolean);
+    const uniq = Array.from(new Set(cleaned));
+    debugLog(`[retrieval.rewrite] produced ${uniq.length} variants`);
+    return uniq.slice(0, Math.max(1, Math.min(5, maxVariants)));
+  } catch (_) {
+    return [];
+  }
+}
+
 export async function ensureIndexInitialized(plugin: HumainChatPlugin) {
   const { lanceDbDir } = getSettingsWithDefaults(plugin.settings);
   const adapter = getAdapter(plugin);
@@ -59,6 +105,9 @@ export interface IndexedChunk {
   path: string;
   content: string;
   embedding: number[];
+  section?: string;
+  start?: number;
+  end?: number;
 }
 
 function getIndexFilePath(dir: string) { return `${dir}/index.jsonl`; }
@@ -208,7 +257,15 @@ export async function rebuildVaultIndex(plugin: HumainChatPlugin, reporter?: (u:
     for (let i = 0; i < d.chunks.length; i += batchSize) {
       const chunkBatch = d.chunks.slice(i, i + batchSize);
       const vectors = await embedWithOllama(embeddingHost, embeddingModel, chunkBatch.map(c => c.content));
-      const rows = chunkBatch.map((c, j) => ({ id: `${d.path}#${c.start}-${c.end}`, path: d.path, content: c.content, embedding: vectors[j] }));
+      const rows = chunkBatch.map((c, j) => ({
+        id: `${d.path}#${c.start}-${c.end}`,
+        path: d.path,
+        content: c.content,
+        embedding: vectors[j],
+        start: c.start,
+        end: c.end,
+        section: inferSection(d.path, c.content)
+      }));
       newRows.push(...rows);
       processed += chunkBatch.length;
       reporter?.({ processed, total: totalChunks, note: d.path, phase: 'embed' });
@@ -289,7 +346,22 @@ export async function searchSimilar(plugin: HumainChatPlugin, input: SearchSimil
     } catch { queryText = input.note_path || ''; }
   }
 
-  const queries = Array.isArray(input.queries) && input.queries.length ? input.queries : [queryText || (input.query || '')];
+  let queries: string[];
+  if (Array.isArray(input.queries) && input.queries.length) {
+    queries = input.queries;
+  } else {
+    const base = queryText || (input.query || '');
+    queries = [base];
+    const wantRewrite = !!(plugin.settings as any)?.retrievalQueryRewrite && input.mode === 'by_query' && base;
+    if (wantRewrite) {
+      try {
+        const maxQ = Math.max(1, Math.min(5, Number((plugin.settings as any)?.retrievalMaxQueries ?? 3)));
+        const variants = await generateQueryVariants(plugin, base, maxQ);
+        const set = new Set<string>([base, ...variants]);
+        queries = Array.from(set).slice(0, maxQ);
+      } catch {}
+    }
+  }
   const qVecs = await embedWithOllama(embeddingHost, embeddingModel, queries);
   const kCap = 5; // Hard cap K at 5
   const k = Math.max(1, Math.min(kCap, input.k ?? ragTopK));
@@ -300,12 +372,18 @@ export async function searchSimilar(plugin: HumainChatPlugin, input: SearchSimil
     if (lance) {
       debugLog('[retrieval] backend: LanceDB');
       const results = await lance.table.search(qVec).limit(k * 3).execute();
-      const scored = results.map((r: any) => ({ r, score: 1 }));
+      let items = results as any[];
+      // optional folder filter post-hoc
+      const f = normalizeFolderFilter(input.filter?.folder);
+      if (f) items = items.filter((r: any) => String(r.path || '').startsWith(f + '/') || String(r.path || '') === f);
+      const scored = items.map((r: any) => ({ r, score: 1 }));
       for (const s of scored) { if ((s.r.content?.length || 0) < minChunkChars) s.score *= 0.6; }
       scoredAll.push(...(scored as any));
     } else {
       debugLog('[retrieval] backend: JSONL');
-      const rows = await readAllIndexRows(plugin, indexPath);
+      let rows = await readAllIndexRows(plugin, indexPath);
+      const f = normalizeFolderFilter(input.filter?.folder);
+      if (f) rows = rows.filter(r => String(r.path || '').startsWith(f + '/') || String(r.path || '') === f);
       if (!rows.length) return [];
       const scored = rows.map(r => ({ r, score: cosineSimilarity(qVec, r.embedding) }));
       for (const s of scored) { if ((s.r.content?.length || 0) < minChunkChars) s.score *= 0.6; }
@@ -327,6 +405,13 @@ export async function searchSimilar(plugin: HumainChatPlugin, input: SearchSimil
     out.push({ path: r.path, score, snippet: String(r.content || '').slice(0, 1200) });
   }
   return out;
+}
+
+function normalizeFolderFilter(folder?: string): string | undefined {
+  if (!folder) return undefined;
+  const f = folder.trim();
+  if (!f || f === '/' || f === '.') return undefined;
+  return f.replace(/^\/+/, '').replace(/\/+$/, '');
 }
 
 function chunkMarkdown(text: string, size: number, overlap: number, path: string) {
@@ -384,6 +469,18 @@ function chunkMarkdown(text: string, size: number, overlap: number, path: string
     }
   }
   return chunks;
+}
+
+function inferSection(path: string, content: string): string | undefined {
+  if (/\.pptx$/i.test(path)) {
+    const m = content.match(/^\-\s*ppt\/slides\/slide(\d+)\.xml/i);
+    if (m) return `slide:${m[1]}`;
+  }
+  if (/^#\s+/.test(content.trim())) {
+    const line = content.trim().split(/\n/)[0];
+    return line.replace(/^#+\s*/, '').slice(0, 80);
+  }
+  return undefined;
 }
 
 // Incremental metadata helpers

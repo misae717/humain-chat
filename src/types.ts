@@ -1,6 +1,8 @@
 export interface HumainChatSettings {
 	enabled: boolean;
 	autoOpenOnStart: boolean;
+	autoOpenDebug?: boolean;
+	autoOpenTrace?: boolean;
 	compactUI: boolean;
 	accentColor: string;
 	gradientEnabled: boolean;
@@ -23,6 +25,7 @@ export interface HumainChatSettings {
 	thinkingIndicators?: boolean;
 	maxToolCalls?: number;
 	showReasoning?: boolean;
+	includeVaultOutlineEachTurn?: boolean;
 	// RAG / Embeddings
 	embeddingModel?: string; // Ollama model name
 	embeddingHost?: string; // Ollama host, e.g. http://127.0.0.1:11434
@@ -45,6 +48,8 @@ export interface HumainChatSettings {
 export const DEFAULT_SETTINGS: HumainChatSettings = {
 	enabled: true,
 	autoOpenOnStart: true,
+	autoOpenDebug: true,
+	autoOpenTrace: true,
 	compactUI: false,
 	accentColor: '#00D49C',
 	gradientEnabled: true,
@@ -88,5 +93,6 @@ export const DEFAULT_CHUNKING = {
 
 export const VIEW_TYPE_CHAT = 'humain-chat-view';
 export const VIEW_TYPE_DEBUG = 'humain-debug-view';
+export const VIEW_TYPE_TRACE = 'humain-trace-view';
 
 

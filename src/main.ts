@@ -2,6 +2,7 @@ import { Plugin, WorkspaceLeaf } from 'obsidian';
 import { DEFAULT_SETTINGS, HumainChatSettings, VIEW_TYPE_CHAT, VIEW_TYPE_DEBUG } from './types';
 import { ChatView } from './ui/chatView';
 import { DebugView } from './ui/debugView';
+import { TraceView } from './ui/traceView';
 import { HumainChatSettingTab } from './settings';
 import { registerCommands } from './commands';
 import { ensureIndexInitialized } from './vector/rag';
@@ -27,6 +28,7 @@ export default class HumainChatPlugin extends Plugin {
 
 		this.registerView(VIEW_TYPE_CHAT, (leaf: WorkspaceLeaf) => new ChatView(leaf));
 		this.registerView(VIEW_TYPE_DEBUG, (leaf: WorkspaceLeaf) => new DebugView(leaf));
+		this.registerView((require('./types') as any).VIEW_TYPE_TRACE, (leaf: WorkspaceLeaf) => new TraceView(leaf));
 
 		if (this.settings.autoOpenOnStart) {
 			this.app.workspace.onLayoutReady(async () => {
@@ -115,6 +117,8 @@ export default class HumainChatPlugin extends Plugin {
 		const existing = workspace.getLeavesOfType(VIEW_TYPE_CHAT);
 		if (existing.length > 0) {
 			workspace.revealLeaf(existing[0]);
+			// Also ensure Debug/Trace open if toggled
+			await this.ensureAuxPanes();
 			return;
 		}
 		let leaf: WorkspaceLeaf;
@@ -127,6 +131,20 @@ export default class HumainChatPlugin extends Plugin {
 		}
 		await leaf.setViewState({ type: VIEW_TYPE_CHAT, active: true });
 		workspace.revealLeaf(leaf);
+		await this.ensureAuxPanes();
+	}
+
+	private async ensureAuxPanes() {
+		try {
+			if (this.settings.autoOpenDebug) {
+				const leaf = this.app.workspace.getLeaf(true);
+				await leaf.setViewState({ type: VIEW_TYPE_DEBUG, active: false });
+			}
+			if (this.settings.autoOpenTrace) {
+				const leaf = this.app.workspace.getLeaf(true);
+				await leaf.setViewState({ type: (require('./types') as any).VIEW_TYPE_TRACE, active: false });
+			}
+		} catch {}
 	}
 }
 

@@ -30,18 +30,20 @@
   - PDF: pdfjs‑dist text content per page; concatenated with headings
 
 ## 4) Retrieval
-- Query → optional LLM query rewrite (multi‑query) → embed → ANN over JSONL
+- Query → optional LLM query rewrite (manual features) → embed → ANN over JSONL
 - Top‑K default 20; penalties for very short chunks; simple MMR diversification
-- Returned context is formatted with path + snippet; injected as system context
+- Chunks carry `section` (e.g., slide number / first heading) and `start/end` offsets
+- Folder filter normalization: root "/" ignored; only real subfolders filter
+- Returned context includes path + snippet; citations are inserted in answers
 - Backends
   - Primary: JSONL (portable)
   - LanceDB attempted runtime load; currently falls back to JSONL
 
 ## 5) Chat & UI
-- Markdown rendering in chat bubbles (Obsidian renderer), line wrapping, clickable links
-- Converts `[path.ext]` to `[[path.ext]]` for md/pdf/pptx/docx
-- Current time injected as system hint per request
-- Debug view logs retrieval context and OpenAI req/resp; editable/selectable
+- Stateful: prior messages (~6k tokens) included each turn
+- Vault outline tool (cached) and optional auto-include per turn
+- Markdown rendering in chat bubbles; clickable links; improved status UI
+- Debug view logs retrieval context and OpenAI req/resp; Trace View shows per-turn steps
 - Indexing progress: status bar percentage; logs streamed to Debug view
 - Tree scan command: lists indexable vs non‑indexable by folder and extension
 - Sample export command: writes 3× DOCX/PPTX/PDF extracts for review
